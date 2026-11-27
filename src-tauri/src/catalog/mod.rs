@@ -30,7 +30,7 @@ use crate::managers::model_capabilities::{CapabilityProbe, Compatibility};
 const SCHEMA: u32 = 2;
 
 /// Mirror fallback list is intentionally empty in WisprSide: zero automatic
-/// fallback to donor `blob.handy.computer` endpoints; downloads use explicit
+/// fallback to donor mirror endpoints; downloads use explicit
 /// user-initiated SHA-256-verified Hugging Face / user-configured URLs only.
 const MIRRORS: &[&str] = &[];
 
@@ -570,7 +570,7 @@ mod tests {
 
     #[test]
     fn zero_donor_mirror_fallbacks_remain_in_catalog() {
-        // WisprSide removes donor-hosted `blob.handy.computer` mirrors and resolves
+        // WisprSide removes donor-hosted CDN mirrors and resolves
         // offered models strictly via HuggingFace Hub or local file import.
         for d in CATALOG.iter() {
             let mirrors = mirror_fallbacks(&d.id);

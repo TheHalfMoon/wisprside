@@ -26,7 +26,7 @@ use download::{
 /// for downloading and on-disk resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum ModelSource {
-    /// Direct HTTP download from a URL (current blob.handy.computer hosting).
+    /// Direct HTTP download from an explicit SHA-256-verified URL.
     Url {
         url: String,
         /// Expected SHA-256 for integrity verification; `None` skips it.
