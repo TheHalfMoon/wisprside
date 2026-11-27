@@ -49,7 +49,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_DESTROYCLIPBOARD, WM_RENDERALLFORMATS, WM_RENDERFORMAT, WM_TIMER, WNDCLASSW,
 };
 
-const CLASS_NAME: PCWSTR = w!("HandyPasteTxWindow");
+const CLASS_NAME: PCWSTR = w!("WisprSidePasteTxWindow");
 const TIMER_ID: usize = 1;
 const TIMER_INTERVAL_MS: u32 = 25;
 /// Skip clipboard formats larger than this when snapshotting.
@@ -76,6 +76,7 @@ pub(super) struct WinTxShared {
     /// ClipboardHandling::CopyToClipboard — settle by leaving the transcript
     /// on the clipboard as plain text instead of restoring the snapshot.
     preserve_transcript: bool,
+    target_binding: Option<super::target::TargetBinding>,
 }
 
 /// The transaction currently holding the clipboard, if any. A new
@@ -148,6 +149,18 @@ unsafe extern "system" fn paste_wnd_proc(
         WM_RENDERFORMAT => {
             if !shared.is_null() {
                 let shared = &*shared;
+                let check = match &shared.target_binding {
+                    Some(binding) => super::target::verify_hwnd_process_fast(binding),
+                    None => Err(super::target::DeliveryRefusalReason::IdentityUnreadable),
+                };
+                if let Err(reason) = check {
+                    warn!("[reliable-paste] WM_RENDERFORMAT refused delayed render: {reason:?}");
+                    if let Ok(mut st) = shared.state.lock() {
+                        st.refused = true;
+                        st.cancelled = true;
+                    }
+                    return LRESULT(0);
+                }
                 if let Ok(mut st) = shared.state.lock() {
                     st.record_receipt(Instant::now());
                 }
@@ -160,16 +173,22 @@ unsafe extern "system" fn paste_wnd_proc(
         WM_RENDERALLFORMATS => {
             // Sent when the window is destroyed while an unrendered promise is
             // still on the clipboard — not a consumer read, so no receipt.
-            // Unlike WM_RENDERFORMAT the system does not open the clipboard on
-            // our behalf here: open it and confirm we still own it first.
+            // Never materialize plaintext unless the user opted into
+            // `CopyToClipboard` (`preserve_transcript`) AND the session was not
+            // refused by target-binding checks; otherwise wipe the promise.
             if !shared.is_null() {
                 let shared = &*shared;
+                let refused = shared.state.lock().map(|st| st.refused).unwrap_or(true);
                 if OpenClipboard(Some(hwnd)).is_ok() {
                     if GetClipboardOwner()
                         .map(|owner| owner == hwnd)
                         .unwrap_or(false)
                     {
-                        render_text(shared);
+                        if shared.preserve_transcript && !refused {
+                            render_text(shared);
+                        } else {
+                            let _ = EmptyClipboard();
+                        }
                     }
                     let _ = CloseClipboard();
                 }
@@ -244,7 +263,8 @@ fn flush_pending() {
 /// the concealed promise with plain transcript text, so clipboard history and
 /// managers record it and it survives this transaction's window going away.
 unsafe fn settle_clipboard(shared: &WinTxShared) {
-    if !shared.preserve_transcript {
+    let refused = shared.state.lock().map(|st| st.refused).unwrap_or(true);
+    if refused || !shared.preserve_transcript {
         restore_snapshot(shared);
         return;
     }
@@ -509,7 +529,7 @@ fn pump_thread(shared: Arc<WinTxShared>, ready: Sender<Result<(), String>>) {
         let hwnd = match CreateWindowExW(
             WINDOW_EX_STYLE::default(),
             CLASS_NAME,
-            w!("HandyPasteTx"),
+            w!("WisprSidePasteTx"),
             WINDOW_STYLE::default(),
             0,
             0,
@@ -571,6 +591,7 @@ fn pump_thread(shared: Arc<WinTxShared>, ready: Sender<Result<(), String>>) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     text: &str,
     app_handle: &tauri::AppHandle,
@@ -579,6 +600,7 @@ pub(super) fn run(
     auto_submit: bool,
     auto_submit_key: AutoSubmitKey,
     clipboard_handling: ClipboardHandling,
+    target_binding: Option<&super::target::TargetBinding>,
 ) -> Result<(), String> {
     let shared = Arc::new(WinTxShared {
         state: Mutex::new(TxState::new()),
@@ -590,6 +612,7 @@ pub(super) fn run(
         auto_submit,
         auto_submit_key,
         preserve_transcript: clipboard_handling == ClipboardHandling::CopyToClipboard,
+        target_binding: target_binding.cloned(),
     });
 
     let (ready_tx, ready_rx) = std::sync::mpsc::channel();

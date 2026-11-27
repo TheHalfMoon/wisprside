@@ -118,6 +118,7 @@ impl TranscriptionJobManager {
     /// Decodes `path` into a recording, then adds it to History and queues
     /// it. The recording exists first, so no entry is ever without audio.
     pub fn transcribe_file(&self, path: PathBuf) -> Result<HistoryEntry> {
+        crate::audio_toolkit::validate_bounded_local_audio_file(&path).map_err(|e| anyhow!(e))?;
         // A malformed file may panic the decoder.
         let samples = catch_unwind(AssertUnwindSafe(|| decode_audio_file(&path))).unwrap_or_else(
             |payload| {
@@ -132,7 +133,10 @@ impl TranscriptionJobManager {
         }
 
         let hm = self.app.state::<Arc<HistoryManager>>();
-        let file_name = format!("handy-file-{}.wav", chrono::Utc::now().timestamp_millis());
+        let file_name = format!(
+            "wisprside-file-{}.wav",
+            chrono::Utc::now().timestamp_millis()
+        );
         let recording = hm.get_audio_file_path(&file_name);
         // Written aside and renamed, so a crash never leaves a partial one.
         let partial = recording.with_extension("wav.partial");

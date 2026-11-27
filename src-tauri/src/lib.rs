@@ -27,7 +27,6 @@ mod shortcut;
 mod signal_handle;
 mod system_languages;
 mod transcription_coordinator;
-mod transcription_hook;
 mod tray;
 mod tray_i18n;
 mod utils;
@@ -530,6 +529,11 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
         return 0;
     };
 
+    if let Err(e) = crate::audio_toolkit::validate_bounded_local_audio_file(&wav) {
+        eprintln!("error: {e}");
+        return 2;
+    }
+
     // read_wav_samples reads 16-bit int samples and does no validation; the app
     // only ever saves 16 kHz mono 16-bit PCM, so reject anything else rather than
     // transcribe garbage / mis-time / mis-decode.
@@ -708,7 +712,6 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_paste_method_setting,
             shortcut::get_available_typing_tools,
             shortcut::change_typing_tool_setting,
-            shortcut::change_external_script_path_setting,
             shortcut::change_clipboard_handling_setting,
             shortcut::change_auto_submit_setting,
             shortcut::change_auto_submit_key_setting,
@@ -805,6 +808,7 @@ pub fn run(cli_args: CliArgs) {
             commands::history::get_history_entries,
             commands::history::toggle_history_entry_saved,
             commands::history::get_audio_file_path,
+            commands::history::read_history_audio,
             commands::history::delete_history_entry,
             commands::history::retry_history_entry_transcription,
             commands::history::cancel_history_entry_transcription,
@@ -998,7 +1002,7 @@ pub fn run(cli_args: CliArgs) {
             // for portable mode (redirects WebView2 cache to portable Data dir)
             let mut win_builder =
                 tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
-                    .title("Handy")
+                    .title("WisprSide")
                     .inner_size(utils::MAIN_WINDOW_SIZE.0, utils::MAIN_WINDOW_SIZE.1)
                     .min_inner_size(utils::MAIN_WINDOW_SIZE.0, utils::MAIN_WINDOW_SIZE.1)
                     .resizable(true)

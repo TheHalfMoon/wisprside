@@ -1,4 +1,4 @@
-/* Handy Colors: every color the app uses comes from here. Pick by job:
+/* WisprSide Quiet Signal Colors: every color the app uses comes from here. Pick by job:
  * greys (ink-2, ink-3, line-strong, line, wash) for text, edges and fills;
  * logo-primary / background-ui for brand and primary actions; plum for keys
  * and picks (onboarding); moss / warning / error (+ -wash) for status.
@@ -9,14 +9,15 @@
   /* Palette source of truth. Each themed color is defined once as a
      light/dark pair; the active tokens below and the `data-theme` overrides
      in App.css reference these, so a hex value lives in exactly one place. */
-  --light-color-text: #0f0f0f;
-  --light-color-background: #fbfbfb;
-  --light-color-logo-primary: #faa2ca;
-  --light-color-logo-stroke: #382731;
+  /* WisprSide Quiet Signal Cobalt palette (WCAG AA verified). */
+  --light-color-text: #111625;
+  --light-color-background: #f8f9fc;
+  --light-color-logo-primary: #3e4bc9;
+  --light-color-logo-stroke: #1b225a;
 
-  --dark-color-text: #fbfbfb;
-  --dark-color-background: #2c2b29;
-  --dark-color-logo-primary: #f28cbb;
+  --dark-color-text: #f3f5fc;
+  --dark-color-background: #0f1320;
+  --dark-color-logo-primary: #8f9bff;
 
   /* Status colors. Each has a -wash tint below. */
   --light-color-warning: #d97706;
@@ -124,7 +125,7 @@
   );
 
   /* Tokens that do not change between light and dark */
-  --color-background-ui: #da5893;
+  --color-background-ui: #3e4bc9;
   --color-mid-gray: #808080;
 
   /* Active palette — defaults to light, follows the OS via the media query

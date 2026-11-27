@@ -912,13 +912,7 @@ impl ModelManager {
                 name: "Whisper Small".to_string(),
                 description: "Fast and fairly accurate.".to_string(),
                 filename: "ggml-small.bin".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/ggml-small.bin".to_string(),
-                    sha256: Some(
-                        "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"
-                            .to_string(),
-                    ),
-                },
+                source: ModelSource::Local,
                 size_mb: 465,
                 is_downloaded: false,
                 is_downloading: false,
@@ -935,7 +929,8 @@ impl ModelManager {
             },
         );
 
-        // Add downloadable models
+        // Legacy .bin entries remain registered as Local so already-downloaded
+        // files continue to run cleanly without unpinned external URLs.
         available_models.insert(
             "medium".to_string(),
             ModelInfo {
@@ -943,13 +938,7 @@ impl ModelManager {
                 name: "Whisper Medium".to_string(),
                 description: "Good accuracy, medium speed".to_string(),
                 filename: "whisper-medium-q4_1.bin".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/whisper-medium-q4_1.bin".to_string(),
-                    sha256: Some(
-                        "79283fc1f9fe12ca3248543fbd54b73292164d8df5a16e095e2bceeaaabddf57"
-                            .to_string(),
-                    ),
-                },
+                source: ModelSource::Local,
                 size_mb: 469,
                 is_downloaded: false,
                 is_downloading: false,
@@ -973,13 +962,7 @@ impl ModelManager {
                 name: "Whisper Turbo".to_string(),
                 description: "Balanced accuracy and speed.".to_string(),
                 filename: "ggml-large-v3-turbo.bin".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/ggml-large-v3-turbo.bin".to_string(),
-                    sha256: Some(
-                        "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
-                            .to_string(),
-                    ),
-                },
+                source: ModelSource::Local,
                 size_mb: 1549,
                 is_downloaded: false,
                 is_downloading: false,
@@ -1003,13 +986,7 @@ impl ModelManager {
                 name: "Whisper Large".to_string(),
                 description: "Good accuracy, but slow.".to_string(),
                 filename: "ggml-large-v3-q5_0.bin".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/ggml-large-v3-q5_0.bin".to_string(),
-                    sha256: Some(
-                        "d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1"
-                            .to_string(),
-                    ),
-                },
+                source: ModelSource::Local,
                 size_mb: 1031,
                 is_downloaded: false,
                 is_downloading: false,
@@ -1034,13 +1011,7 @@ impl ModelManager {
                 description: "Optimized for Taiwanese Mandarin. Code-switching support."
                     .to_string(),
                 filename: "breeze-asr-q5_k.bin".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/breeze-asr-q5_k.bin".to_string(),
-                    sha256: Some(
-                        "8efbf0ce8a3f50fe332b7617da787fb81354b358c288b008d3bdef8359df64c6"
-                            .to_string(),
-                    ),
-                },
+                source: ModelSource::Local,
                 size_mb: 1030,
                 is_downloaded: false,
                 is_downloading: false,
@@ -2759,8 +2730,9 @@ mod tests {
                     )
                 });
             assert!(
-                !crate::catalog::mirror_fallbacks(&replacement.id).is_empty(),
-                "{}: replacement {} has no mirror fallback",
+                !replacement.filename.is_empty()
+                    && crate::catalog::mirror_fallbacks(&replacement.id).is_empty(),
+                "{}: replacement {} must resolve via HF without donor mirrors",
                 retired.id,
                 replacement.id
             );

@@ -33,6 +33,18 @@ pub async fn toggle_history_entry_saved(
         .map_err(|e| e.to_string())
 }
 
+fn validate_recording_file_name(file_name: &str) -> Result<(), String> {
+    use std::path::{Component, Path};
+    if file_name.is_empty() || file_name.contains('/') || file_name.contains('\\') {
+        return Err("Invalid recording file name".to_string());
+    }
+    let mut comps = Path::new(file_name).components();
+    match (comps.next(), comps.next()) {
+        (Some(Component::Normal(_)), None) => Ok(()),
+        _ => Err("Invalid recording file name".to_string()),
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_audio_file_path(
@@ -40,10 +52,24 @@ pub async fn get_audio_file_path(
     history_manager: State<'_, Arc<HistoryManager>>,
     file_name: String,
 ) -> Result<String, String> {
+    validate_recording_file_name(&file_name)?;
     let path = history_manager.get_audio_file_path(&file_name);
     path.to_str()
         .ok_or_else(|| "Invalid file path".to_string())
         .map(|s| s.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn read_history_audio(
+    _app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    file_name: String,
+) -> Result<Vec<u8>, String> {
+    validate_recording_file_name(&file_name)?;
+    let path = history_manager.get_audio_file_path(&file_name);
+    crate::audio_toolkit::validate_bounded_local_audio_file(&path)?;
+    std::fs::read(&path).map_err(|e| format!("Failed to read recording audio: {e}"))
 }
 
 #[tauri::command]

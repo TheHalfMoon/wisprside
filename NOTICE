@@ -1,0 +1,14 @@
+WisprSide
+Copyright 2026 Halfmoon / the Wispral authors (repository owner: TheHalfMoon)
+
+WisprSide is licensed under the MIT License (see LICENSE).
+
+Third-party and donor source attributions:
+
+- WisprSide adapts and extends Handy (`cjpais/Handy`, commit 73cc857,
+  https://github.com/cjpais/Handy).
+  Copyright (c) 2025 CJ Pais. Licensed under the MIT License (see LICENSE).
+
+- Target-binding and privacy-first voice workflow concepts informed by clean-room
+  reference study of OpenWhispr (`OpenWhispr/openwhispr`, MIT) and FreeFlow
+  (`zachlatta/freeflow`, MIT).
