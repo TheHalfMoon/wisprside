@@ -9,6 +9,12 @@ Third-party and donor source attributions:
   https://github.com/cjpais/Handy).
   Copyright (c) 2025 CJ Pais. Licensed under the MIT License (see LICENSE).
 
+- WisprSide links pure-Rust Apache-2.0 workspace crates (`wispral-contracts`,
+  `wispral-arabic`, `wispral-context`, `wispral-memory`, `wispral-speech`,
+  `wispral-policy`) from `TheHalfMoon/Wispral`
+  (https://github.com/TheHalfMoon/Wispral).
+  Copyright 2026 Halfmoon / the Wispral authors. Licensed under the Apache License, Version 2.0.
+
 - Target-binding and privacy-first voice workflow concepts informed by clean-room
   reference study of OpenWhispr (`OpenWhispr/openwhispr`, MIT) and FreeFlow
   (`zachlatta/freeflow`, MIT).

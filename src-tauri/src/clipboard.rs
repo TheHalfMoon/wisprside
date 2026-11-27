@@ -846,6 +846,13 @@ pub fn paste(
         }
     }
 
+    let target_category = activation_target
+        .map(|b| crate::profiles::classify_executable(&b.executable_basename))
+        .unwrap_or(crate::profiles::AppCategory::BusinessApp);
+    // Hard safety floor: Terminal windows NEVER auto-submit (`Enter`) regardless of user toggle.
+    let effective_auto_submit =
+        crate::profiles::effective_auto_submit(target_category, settings.auto_submit);
+
     // Perform the paste operation
     match paste_method {
         PasteMethod::None => {
@@ -870,7 +877,7 @@ pub fn paste(
                 // Runs entirely on the main thread, as it requires.
                 let (text, app) = (text.clone(), app_handle.clone());
                 let (auto_submit, auto_submit_key, clipboard_handling) = (
-                    settings.auto_submit,
+                    effective_auto_submit,
                     settings.auto_submit_key,
                     settings.clipboard_handling,
                 );
@@ -904,7 +911,7 @@ pub fn paste(
         }
     }
 
-    if should_send_auto_submit(settings.auto_submit, paste_method) {
+    if should_send_auto_submit(effective_auto_submit, paste_method) {
         std::thread::sleep(Duration::from_millis(50));
         let auto_submit_key = settings.auto_submit_key;
         if let Err(error) = with_enigo(&app_handle, move |enigo| {

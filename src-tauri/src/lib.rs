@@ -1,4 +1,5 @@
 mod actions;
+pub mod agent_control;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 mod audio_feedback;
@@ -20,7 +21,9 @@ mod memory;
 mod notices;
 mod overlay;
 mod paste_tx;
+pub mod personal_memory;
 pub mod portable;
+pub mod profiles;
 mod secure_input;
 mod settings;
 mod shortcut;
@@ -31,6 +34,7 @@ mod tray;
 mod tray_i18n;
 mod utils;
 pub mod webkit_renderer;
+pub mod writing_modes;
 
 pub use cli::CliArgs;
 #[cfg(debug_assertions)]
@@ -815,6 +819,16 @@ pub fn run(cli_args: CliArgs) {
             commands::history::transcribe_file,
             commands::history::update_history_limit,
             commands::history::update_recording_retention_period,
+            commands::intelligence::list_app_profiles_cmd,
+            commands::intelligence::get_app_profile_cmd,
+            commands::intelligence::set_active_writing_mode_cmd,
+            commands::intelligence::execute_writing_mode_cmd,
+            commands::intelligence::list_agent_capabilities_cmd,
+            commands::intelligence::prepare_agent_dispatch_cmd,
+            commands::intelligence::get_memory_bundle_cmd,
+            commands::intelligence::set_memory_privacy_cmd,
+            commands::intelligence::upsert_memory_snippet_cmd,
+            commands::intelligence::wipe_personal_memory_cmd,
             helpers::clamshell::is_laptop,
             notices::get_active_notices,
             notices::dismiss_notice,

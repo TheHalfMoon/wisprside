@@ -745,45 +745,67 @@ impl ShortcutAction for TranscribeAction {
                     set_tray_state(&ah, TrayIconState::Idle);
                     emit_transcription_complete(&ah, empty_outcome(input_silent), 0, stop_time);
                 } else {
-                    // Save WAV concurrently with transcription
                     let sample_count = samples.len();
-                    let file_name = format!("wisprside-{}.wav", chrono::Utc::now().timestamp());
-                    let wav_path = hm.recordings_dir().join(&file_name);
-                    let wav_path_for_verify = wav_path.clone();
-                    let samples_for_wav = samples.clone();
-                    let wav_handle = tauri::async_runtime::spawn_blocking(move || {
-                        crate::audio_toolkit::save_wav_file(&wav_path, &samples_for_wav)
-                    });
+                    let wispral_home = crate::portable::app_data_dir(&ah)
+                        .ok()
+                        .map(|d| d.join("wispral_home"));
+                    let privacy = wispral_home
+                        .as_deref()
+                        .map(crate::personal_memory::load_privacy_config)
+                        .unwrap_or_default();
+                    let should_save_audio = privacy.keep_audio
+                        && privacy.retention != wispral_memory::RetentionPolicy::KeepNothing;
 
-                    // Transcribe concurrently with WAV save: the live decode's
+                    // Save WAV concurrently ONLY when `keep_audio` is explicitly enabled
+                    // and retention is not `KeepNothing` (Constitution Principle XIV).
+                    let file_name = format!("wisprside-{}.wav", chrono::Utc::now().timestamp());
+                    let wav_handle = if should_save_audio {
+                        let wav_path = hm.recordings_dir().join(&file_name);
+                        let wav_path_for_verify = wav_path.clone();
+                        let samples_for_wav = samples.clone();
+                        Some((
+                            wav_path_for_verify,
+                            tauri::async_runtime::spawn_blocking(move || {
+                                crate::audio_toolkit::save_wav_file(&wav_path, &samples_for_wav)
+                            }),
+                        ))
+                    } else {
+                        None
+                    };
+
+                    // Transcribe concurrently with optional WAV save: the live decode's
                     // result when it has one (all audio was already fed to it),
                     // otherwise a batch run of the samples. A cancel is surfaced
                     // as an error, so it never starts a batch run.
                     let transcription_time = Instant::now();
                     let transcription_result = tm.transcribe_recording(samples);
 
-                    // Await WAV save and verify
-                    let wav_saved = match wav_handle.await {
-                        Ok(Ok(())) => {
-                            match crate::audio_toolkit::verify_wav_file(
-                                &wav_path_for_verify,
-                                sample_count,
-                            ) {
-                                Ok(()) => true,
-                                Err(e) => {
-                                    error!("WAV verification failed: {}", e);
-                                    false
+                    // Await optional WAV save and verify
+                    let wav_saved = if let Some((wav_path_for_verify, handle)) = wav_handle {
+                        match handle.await {
+                            Ok(Ok(())) => {
+                                match crate::audio_toolkit::verify_wav_file(
+                                    &wav_path_for_verify,
+                                    sample_count,
+                                ) {
+                                    Ok(()) => true,
+                                    Err(e) => {
+                                        error!("WAV verification failed: {}", e);
+                                        false
+                                    }
                                 }
                             }
+                            Ok(Err(e)) => {
+                                error!("Failed to save WAV file: {}", e);
+                                false
+                            }
+                            Err(e) => {
+                                error!("WAV save task panicked: {}", e);
+                                false
+                            }
                         }
-                        Ok(Err(e)) => {
-                            error!("Failed to save WAV file: {}", e);
-                            false
-                        }
-                        Err(e) => {
-                            error!("WAV save task panicked: {}", e);
-                            false
-                        }
+                    } else {
+                        false
                     };
 
                     if rm.was_cancelled_since(cancel_generation) {
@@ -830,13 +852,102 @@ impl ShortcutAction for TranscribeAction {
                                 return;
                             }
 
-                            // Save to history if WAV was saved
-                            if wav_saved {
+                            // Expand Personal Memory snippets & corrections (`SD-2`)
+                            let expanded_text = if let Some(ref home) = wispral_home {
+                                crate::personal_memory::apply_personal_memory_expansions(
+                                    home,
+                                    &processed.final_text,
+                                )
+                            } else {
+                                processed.final_text.clone()
+                            };
+
+                            // Execute active WritingMode with target AppCategory, ToneStyle & UIA selection
+                            let cur_settings = get_settings(&ah);
+                            let app_cat = activation_target
+                                .as_ref()
+                                .map(|t| {
+                                    crate::profiles::classify_executable(&t.executable_basename)
+                                })
+                                .unwrap_or(crate::profiles::AppCategory::BusinessApp);
+                            let app_prof = crate::profiles::default_profile_for(app_cat);
+                            let sel_text = activation_target
+                                .as_ref()
+                                .and_then(|t| t.focus_element.as_ref())
+                                .and_then(|f| f.selected_text.clone());
+
+                            let (final_text, delivers_to_target, requires_preview) =
+                                match crate::writing_modes::execute_writing_mode(
+                                    &crate::writing_modes::ModeExecutionRequest {
+                                        mode: cur_settings.active_writing_mode,
+                                        spoken_transcript: expanded_text.clone(),
+                                        selected_text: sel_text,
+                                        target_language: Some(
+                                            cur_settings.translation_target_language.clone(),
+                                        ),
+                                        app_category: app_cat,
+                                        tone: app_prof.tone,
+                                    },
+                                ) {
+                                    Ok(mode_res) => {
+                                        if let Some(
+                                            crate::writing_modes::StructuredCommand::SwitchMode {
+                                                target_mode,
+                                            },
+                                        ) = mode_res.structured_command
+                                        {
+                                            let mut next_settings = cur_settings.clone();
+                                            next_settings.active_writing_mode = target_mode;
+                                            crate::settings::write_settings(&ah, next_settings);
+                                        }
+                                        if mode_res.mode == crate::writing_modes::WritingMode::Aside
+                                            && !mode_res.output_text.is_empty()
+                                        {
+                                            if let Some(ref home) = wispral_home {
+                                                let now_ms =
+                                                    chrono::Utc::now().timestamp_millis().max(0)
+                                                        as u64;
+                                                let note_id =
+                                                    crate::personal_memory::next_memory_id(
+                                                        "aside", now_ms,
+                                                    );
+                                                let app_label = activation_target
+                                                    .as_ref()
+                                                    .map(|t| t.executable_basename.clone());
+                                                let _ = crate::personal_memory::record_aside_note(
+                                                    home,
+                                                    note_id,
+                                                    mode_res.output_text.clone(),
+                                                    app_label,
+                                                    now_ms,
+                                                );
+                                            }
+                                        }
+                                        (
+                                            mode_res.output_text,
+                                            mode_res.delivers_to_target,
+                                            mode_res.requires_preview_confirmation,
+                                        )
+                                    }
+                                    Err(err) => {
+                                        warn!("Writing mode execution refused or failed: {err}");
+                                        (String::new(), false, false)
+                                    }
+                                };
+
+                            // Persist history ONLY when retention != KeepNothing (`Constitution Principle XIV`)
+                            if privacy.retention != wispral_memory::RetentionPolicy::KeepNothing {
+                                let stored_file = if wav_saved { file_name } else { String::new() };
+                                let stored_post = if final_text != transcription {
+                                    Some(final_text.clone())
+                                } else {
+                                    processed.post_processed_text.clone()
+                                };
                                 if let Err(err) = hm.save_entry(
-                                    file_name,
+                                    stored_file,
                                     transcription,
                                     post_process,
-                                    processed.post_processed_text.clone(),
+                                    stored_post,
                                     processed.post_process_prompt.clone(),
                                     language,
                                 ) {
@@ -844,9 +955,31 @@ impl ShortcutAction for TranscribeAction {
                                 }
                             }
 
-                            let final_text = processed.final_text;
-
-                            if final_text.is_empty() {
+                            // Non-delivering modes (`Aside`, `Command`) and `Edit` preview fail-closed guard
+                            if !delivers_to_target || requires_preview {
+                                if requires_preview && !final_text.is_empty() {
+                                    if let Some(ref home) = wispral_home {
+                                        let now_ms =
+                                            chrono::Utc::now().timestamp_millis().max(0) as u64;
+                                        let note_id =
+                                            crate::personal_memory::next_memory_id("edit", now_ms);
+                                        let app_label = activation_target
+                                            .as_ref()
+                                            .map(|t| t.executable_basename.clone());
+                                        let _ = crate::personal_memory::record_aside_note(
+                                            home, note_id, final_text, app_label, now_ms,
+                                        );
+                                    }
+                                }
+                                utils::hide_recording_overlay(&ah);
+                                set_tray_state(&ah, TrayIconState::Idle);
+                                emit_transcription_complete(
+                                    &ah,
+                                    TranscriptionOutcome::Typed,
+                                    sample_count,
+                                    stop_time,
+                                );
+                            } else if final_text.is_empty() {
                                 utils::hide_recording_overlay(&ah);
                                 set_tray_state(&ah, TrayIconState::Idle);
                                 emit_transcription_complete(

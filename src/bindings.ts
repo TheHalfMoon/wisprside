@@ -1022,6 +1022,71 @@ async updateRecordingRetentionPeriod(period: string) : Promise<Result<null, stri
     else return { status: "error", error: e  as any };
 }
 },
+async listAppProfilesCmd() : Promise<AppProfile[]> {
+    return await TAURI_INVOKE("list_app_profiles_cmd");
+},
+async getAppProfileCmd(executableBasename: string) : Promise<AppProfile> {
+    return await TAURI_INVOKE("get_app_profile_cmd", { executableBasename });
+},
+async setActiveWritingModeCmd(mode: WritingMode, targetLanguage: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_active_writing_mode_cmd", { mode, targetLanguage }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async executeWritingModeCmd(request: ModeExecutionRequest) : Promise<Result<ModeExecutionResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("execute_writing_mode_cmd", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listAgentCapabilitiesCmd() : Promise<AgentCapabilityDescriptor[]> {
+    return await TAURI_INVOKE("list_agent_capabilities_cmd");
+},
+async prepareAgentDispatchCmd(target: AgentTargetId, spokenPrompt: string, workspaceRoot: string | null, userConfirmedHighRisk: boolean) : Promise<Result<AgentPromptEnvelope, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("prepare_agent_dispatch_cmd", { target, spokenPrompt, workspaceRoot, userConfirmedHighRisk }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getMemoryBundleCmd() : Promise<Result<PersonalMemorySnapshot, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_memory_bundle_cmd") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setMemoryPrivacyCmd(retentionMode: MemoryRetentionMode, keepAudio: boolean) : Promise<Result<PersonalMemorySnapshot, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_memory_privacy_cmd", { retentionMode, keepAudio }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async upsertMemorySnippetCmd(trigger: string, expansion: string) : Promise<Result<PersonalMemorySnapshot, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("upsert_memory_snippet_cmd", { trigger, expansion }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async wipePersonalMemoryCmd() : Promise<Result<PersonalMemorySnapshot, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("wipe_personal_memory_cmd") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Checks if the Mac is a laptop by detecting battery presence
  * 
@@ -1170,7 +1235,7 @@ language_detection_window_secs?: number;
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
-overlay_style?: OverlayStyle }
+overlay_style?: OverlayStyle; active_writing_mode?: WritingMode; translation_target_language?: string }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AutoUnavailableReason = 
@@ -1549,6 +1614,21 @@ export type TranscriptionOutcome =
 export type TypingTool = "auto" | "wtype" | "kwtype" | "dotool" | "ydotool" | "xdotool"
 export type VadBackend = "silero" | "earshot"
 export type WindowsMicrophonePermissionStatus = { supported: boolean; overall_access: PermissionAccess; device_access: PermissionAccess; app_access: PermissionAccess; desktop_app_access: PermissionAccess }
+export type AppCategory = "email" | "chat" | "browser" | "terminal" | "ide" | "document" | "notes" | "business_app"
+export type ToneStyle = "professional" | "concise_conversational" | "technical_code_aware" | "structured_prose" | "verbatim_clean"
+export type AppProfile = { category: AppCategory; tone: ToneStyle; preserve_code_identifiers: boolean; smart_list_formatting: boolean; allow_auto_submit: boolean; preferred_mode: string }
+export type WritingMode = "dictation" | "compose" | "edit" | "translate" | "command" | "aside"
+export type StructuredCommand = { action: "scratch_last_sentence" } | { action: "new_paragraph" } | { action: "wrap_code_block"; language: string; content: string } | { action: "switch_mode"; target_mode: WritingMode } | { action: "dispatch_to_agent"; prompt: string } | { action: "literal_text"; text: string }
+export type ModeExecutionRequest = { mode: WritingMode; spoken_transcript: string; selected_text: string | null; target_language: string | null; app_category: AppCategory; tone: ToneStyle }
+export type ModeExecutionResult = { mode: WritingMode; output_text: string; bidi_display_text: string; delivers_to_target: boolean; requires_preview_confirmation: boolean; structured_command: StructuredCommand | null; safety_notes: string[] }
+export type AgentTargetId = "antigravity" | "claude_code" | "codex" | "open_code" | "gemini_cli" | "cursor"
+export type IntegrationTransport = "acp_stdio" | "managed_cli_subprocess" | "target_bound_ide_bridge"
+export type AgentCapabilityDescriptor = { id: AgentTargetId; display_name: string; transport: IntegrationTransport; default_binary: string; supports_session_resume: boolean; supports_permission_gate: boolean; supports_verified_process_cancel: boolean; qualification_note: string }
+export type AgentPromptEnvelope = { target: AgentTargetId; sanitized_prompt: string; matched_workspace_files: string[]; matched_workspace_symbols: string[]; inferred_action_class: string; policy_decision: string; acp_jsonrpc_frame: string | null; cli_argv: string[] }
+export type MemoryRetentionMode = "keep_nothing" | "session_only" | "bounded7_days" | "bounded30_days" | "user_controlled"
+export type PersonalSnippetDto = { id: string; trigger: string; expansion: string; created_at_ms: number }
+export type AsideNoteDto = { id: string; text: string; app_name: string | null; created_at_ms: number }
+export type PersonalMemorySnapshot = { keep_audio: boolean; retention_mode: MemoryRetentionMode; snippets: PersonalSnippetDto[]; aside_notes: AsideNoteDto[] }
 
 /** tauri-specta globals **/
 

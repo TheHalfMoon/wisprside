@@ -468,13 +468,15 @@ impl HistoryManager {
             )?;
 
             // Delete WAV file
-            let file_path = self.recordings_dir.join(file_name);
-            if file_path.exists() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete WAV file {}: {}", file_name, e);
-                } else {
-                    debug!("Deleted old WAV file: {}", file_name);
-                    deleted_count += 1;
+            if !file_name.is_empty() {
+                let file_path = self.recordings_dir.join(file_name);
+                if file_path.is_file() {
+                    if let Err(e) = fs::remove_file(&file_path) {
+                        error!("Failed to delete WAV file {}: {}", file_name, e);
+                    } else {
+                        debug!("Deleted old WAV file: {}", file_name);
+                        deleted_count += 1;
+                    }
                 }
             }
         }
@@ -694,11 +696,13 @@ impl HistoryManager {
         // Get the entry to find the file name
         if let Some(entry) = self.get_entry_by_id(id).await? {
             // Delete the audio file first
-            let file_path = self.get_audio_file_path(&entry.file_name);
-            if file_path.exists() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete audio file {}: {}", entry.file_name, e);
-                    // Continue with database deletion even if file deletion fails
+            if !entry.file_name.is_empty() {
+                let file_path = self.get_audio_file_path(&entry.file_name);
+                if file_path.is_file() {
+                    if let Err(e) = fs::remove_file(&file_path) {
+                        error!("Failed to delete audio file {}: {}", entry.file_name, e);
+                        // Continue with database deletion even if file deletion fails
+                    }
                 }
             }
         }
@@ -717,6 +721,29 @@ impl HistoryManager {
         }
 
         Ok(())
+    }
+
+    /// Purges all SQLite transcription history rows and saved WAV files (`SD-2` 1-click wipe).
+    pub fn wipe_all_entries(&self) -> Result<usize> {
+        let conn = self.get_connection()?;
+        let ids: Vec<i64> = {
+            let mut stmt = conn.prepare("SELECT id FROM transcription_history")?;
+            let mapped = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+            mapped.collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let deleted = conn.execute("DELETE FROM transcription_history", [])?;
+        if let Ok(read_dir) = fs::read_dir(&self.recordings_dir) {
+            for entry in read_dir.flatten() {
+                let p = entry.path();
+                if p.is_file() {
+                    let _ = fs::remove_file(&p);
+                }
+            }
+        }
+        for id in ids {
+            let _ = (HistoryUpdatePayload::Deleted { id }).emit(&self.app_handle);
+        }
+        Ok(deleted)
     }
 
     fn format_timestamp_title(&self, timestamp: i64) -> String {

@@ -19,7 +19,8 @@
     "postProcessing": "후처리",
     "history": "히스토리",
     "debug": "디버그",
-    "about": "정보"
+    "about": "정보",
+    "intelligence": "Intelligence"
   },
   "onboarding": {
     "customModelDescription": "공식 지원되지 않음",
@@ -897,6 +898,72 @@
           "description": "OpenAI의 Whisper 자동 음성 인식 모델의 고성능 추론",
           "details": "Handy는 빠르고 로컬 음성-텍스트 처리를 위해 ggml를 사용합니다. Georgi Gerganov와 기여자들의 놀라운 작업에 감사드립니다."
         }
+      }
+    },
+    "intelligence": {
+      "modes": {
+        "title": "Writing Modes",
+        "selectorTitle": "Intelligent Voice Modes",
+        "selectorDescription": "Dictate, compose structured prose, edit selections safely, translate EN/AR offline, run deterministic voice commands, or capture Aside notes.",
+        "targetLanguage": "Target Language",
+        "langEn": "English",
+        "langAr": "Arabic",
+        "runPreview": "Run Offline Preview",
+        "items": {
+          "dictation": "Dictation",
+          "compose": "Compose",
+          "edit": "Edit",
+          "translate": "Translate",
+          "command": "Command",
+          "aside": "Aside"
+        },
+        "spokenLabel": "Spoken transcript",
+        "selectionLabel": "Selected text (UIA)",
+        "deliversBadge": "Delivers to active app",
+        "noDeliveryBadge": "Local only — never pasted",
+        "previewRequiredBadge": "Preview confirmation required"
+      },
+      "profiles": {
+        "title": "App Profiles",
+        "safetyTitle": "Context-Aware Delivery & Terminal Safety",
+        "safetyDescription": "Automatically adapts tone and formatting per active application. Terminal windows never auto-submit Enter.",
+        "autoSubmitAllowed": "Auto-submit opt-in",
+        "autoSubmitBlocked": "Auto-submit blocked",
+        "ide": "IDE / Code Editor",
+        "terminal": "Terminal / Shell",
+        "email": "Email",
+        "chat": "Chat",
+        "notes": "Notes",
+        "document": "Document",
+        "browser": "Browser",
+        "business_app": "Business App"
+      },
+      "agents": {
+        "title": "Coding-Agent Control",
+        "dispatchTitle": "ACP stdio & Policy-Gated Agent Dispatch",
+        "dispatchDescription": "Grounds spoken prompts against workspace symbols, redacts secrets, and gates destructive actions before agent execution.",
+        "inspectEnvelope": "Inspect Policy & Prompt Envelope",
+        "promptLabel": "Spoken agent instruction",
+        "confirmHighRisk": "Confirm high-risk / destructive action"
+      },
+      "memory": {
+        "title": "Personal Memory & Aside",
+        "privacyTitle": "Local Retention & Snippets",
+        "privacyDescription": "Audio retention is off by default. Switch to Keep Nothing for zero disk persistence, or manage reusable voice snippets.",
+        "keepNothing": "Keep Nothing (Zero Persistence)",
+        "sessionOnly": "Session Only",
+        "bounded7Days": "Bounded (7 Days)",
+        "bounded30Days": "Bounded (30 Days)",
+        "userControlled": "User Controlled",
+        "triggerPlaceholder": "Spoken trigger",
+        "expansionPlaceholder": "Expanded text",
+        "addSnippet": "Save Snippet",
+        "wipeAll": "Wipe Personal Memory",
+        "keepAudioLabel": "Retain local WAV recordings (off by default)",
+        "snippetsHeading": "Saved Voice Snippets",
+        "asideHeading": "Aside Scratchpad Notes",
+        "emptySnippets": "No voice snippets saved yet.",
+        "emptyAside": "No Aside notes captured yet."
       }
     }
   },
