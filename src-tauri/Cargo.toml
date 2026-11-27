@@ -107,6 +107,12 @@ tauri-plugin-dialog = "2.6"
 hf-hub = { git = "https://github.com/cjpais/hf-hub", branch = "cancellable-downloads", features = [
   "tokio",
 ] }
+wispral-contracts = { git = "https://github.com/TheHalfMoon/Wispral.git", rev = "19e293fb2633dd4efc832d52e948086fa3621a83" }
+wispral-arabic = { git = "https://github.com/TheHalfMoon/Wispral.git", rev = "19e293fb2633dd4efc832d52e948086fa3621a83" }
+wispral-context = { git = "https://github.com/TheHalfMoon/Wispral.git", rev = "19e293fb2633dd4efc832d52e948086fa3621a83" }
+wispral-memory = { git = "https://github.com/TheHalfMoon/Wispral.git", rev = "19e293fb2633dd4efc832d52e948086fa3621a83" }
+wispral-policy = { git = "https://github.com/TheHalfMoon/Wispral.git", rev = "19e293fb2633dd4efc832d52e948086fa3621a83" }
+wispral-speech = { git = "https://github.com/TheHalfMoon/Wispral.git", rev = "19e293fb2633dd4efc832d52e948086fa3621a83" }
 
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.3"

@@ -216,7 +216,166 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
         }
     }
 
-    result.join(" ")
+    let joined = result.join(" ");
+
+    // Apply transcript-preserving Arabic normalization-aware & proclitic-aware custom-word
+    // replacements (`أ/إ/آ -> ا`, `ة/ه`, harakat, multi-word phrases, and attached proclitics)
+    // WITHOUT stripping TATWEEL (`ـ`, U+0640) from unmatched code-switching tokens (`للـ pull`).
+    apply_arabic_custom_words(&joined, custom_words)
+}
+
+fn match_arabic_proclitic_prefix<'a>(word: &'a str, prefix: &str) -> Option<(String, &'a str)> {
+    let mut display = String::new();
+    let mut iter = word.char_indices().peekable();
+    for expected in prefix.chars() {
+        while let Some(&(_, c)) = iter.peek() {
+            if c == wispral_arabic::TATWEEL {
+                iter.next();
+            } else if wispral_arabic::is_arabic_diacritic(c) {
+                display.push(c);
+                iter.next();
+            } else {
+                break;
+            }
+        }
+        let (_, ch) = iter.next()?;
+        if wispral_arabic::fold_alef_and_digits(ch) != expected {
+            return None;
+        }
+        display.push(ch);
+        while let Some(&(_, c)) = iter.peek() {
+            if c == wispral_arabic::TATWEEL {
+                iter.next();
+            } else if wispral_arabic::is_arabic_diacritic(c) {
+                display.push(c);
+                iter.next();
+            } else {
+                break;
+            }
+        }
+    }
+    let rest_offset = iter.peek().map_or(word.len(), |&(idx, _)| idx);
+    let rest_clean = word[rest_offset..].trim_start_matches(wispral_arabic::TATWEEL);
+    let arabic_letters = rest_clean
+        .chars()
+        .filter(|&c| wispral_arabic::is_arabic_script(c) && !wispral_arabic::is_arabic_diacritic(c))
+        .count();
+    if arabic_letters >= 3 {
+        Some((display, rest_clean))
+    } else {
+        None
+    }
+}
+
+fn apply_arabic_custom_words(text: &str, custom_words: &[String]) -> String {
+    use wispral_arabic::{NormalizationLevel, NormalizedMatchKey};
+
+    let arabic_entries: Vec<(usize, NormalizedMatchKey, &str)> = custom_words
+        .iter()
+        .map(|w| w.trim())
+        .filter(|w| !w.is_empty() && w.chars().any(wispral_arabic::is_arabic_script))
+        .map(|w| {
+            let word_count = w.split_whitespace().count().max(1);
+            let key = NormalizedMatchKey::from_surface(w, NormalizationLevel::FullMatchFold);
+            (word_count, key, w)
+        })
+        .collect();
+
+    if arabic_entries.is_empty() || !text.chars().any(wispral_arabic::is_arabic_script) {
+        return text.to_owned();
+    }
+
+    let tokens: Vec<&str> = text.split(' ').collect();
+    let mut out: Vec<String> = Vec::with_capacity(tokens.len());
+    let mut idx = 0usize;
+
+    while idx < tokens.len() {
+        let max_span = (tokens.len() - idx).min(3);
+        let mut matched_span: Option<(usize, String)> = None;
+
+        for span in (1..=max_span).rev() {
+            let slice = &tokens[idx..idx + span];
+            if slice.iter().any(|t| t.is_empty()) {
+                continue;
+            }
+            if slice[..span - 1]
+                .iter()
+                .any(|t| !extract_punctuation(t).1.is_empty())
+            {
+                continue;
+            }
+            let (lead_p, _) = extract_punctuation(slice[0]);
+            let (_, trail_p) = extract_punctuation(slice[span - 1]);
+            let mut stripped_parts = Vec::with_capacity(span);
+            for (k, tok) in slice.iter().enumerate() {
+                let lp = if k == 0 { lead_p.len() } else { 0 };
+                let tp = if k + 1 == span { trail_p.len() } else { 0 };
+                if lp + tp <= tok.len() {
+                    stripped_parts.push(&tok[lp..tok.len() - tp]);
+                } else {
+                    stripped_parts.push("");
+                }
+            }
+            let candidate_surface = stripped_parts.join(" ");
+            if candidate_surface.is_empty() || candidate_surface.ends_with(wispral_arabic::TATWEEL)
+            {
+                continue;
+            }
+            let cand_key = NormalizedMatchKey::from_surface(
+                &candidate_surface,
+                NormalizationLevel::FullMatchFold,
+            );
+            if let Some((_, _, rep)) = arabic_entries
+                .iter()
+                .find(|(wc, key, _)| *wc == span && *key == cand_key)
+            {
+                matched_span = Some((span, format!("{lead_p}{rep}{trail_p}")));
+                break;
+            }
+        }
+
+        if let Some((span, replaced)) = matched_span {
+            out.push(replaced);
+            idx += span;
+            continue;
+        }
+
+        // Single-token proclitic match (`للإكرا`, `وبالأحمد`) — never touches standalone `للـ`.
+        let tok = tokens[idx];
+        let (lead_p, trail_p) = extract_punctuation(tok);
+        let core = if lead_p.len() + trail_p.len() <= tok.len() {
+            &tok[lead_p.len()..tok.len() - trail_p.len()]
+        } else {
+            ""
+        };
+        let mut proclitic_replaced: Option<String> = None;
+        if !core.is_empty() && !core.ends_with(wispral_arabic::TATWEEL) {
+            for &prefix in wispral_arabic::ARABIC_PROCLITICS {
+                if let Some((proclitic_display, stem)) = match_arabic_proclitic_prefix(core, prefix)
+                {
+                    let stem_key =
+                        NormalizedMatchKey::from_surface(stem, NormalizationLevel::FullMatchFold);
+                    if let Some((_, _, rep)) = arabic_entries
+                        .iter()
+                        .find(|(wc, key, _)| *wc == 1 && *key == stem_key)
+                    {
+                        proclitic_replaced =
+                            Some(format!("{lead_p}{proclitic_display}{rep}{trail_p}"));
+                        break;
+                    }
+                }
+            }
+        }
+
+        if let Some(rep) = proclitic_replaced {
+            out.push(rep);
+        } else {
+            out.push(tok.to_owned());
+        }
+        idx += 1;
+    }
+
+    out.join(" ")
 }
 
 /// Preserves the case pattern of the original word when applying a replacement
@@ -883,5 +1042,27 @@ mod tests {
         let custom_words = vec!["你号".to_string()];
         let result = apply_custom_words(text, &custom_words, 1.0);
         assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_apply_custom_words_supports_arabic_alef_folding_and_proclitics() {
+        let text = "تحدثنا مع احمد وعبد الرحمن حول مشروع للإكرا اليوم";
+        let custom_words = vec![
+            "أحمد".to_string(),
+            "إِكْرَا".to_string(),
+            "عبد الرحمن".to_string(),
+        ];
+        let result = apply_custom_words(text, &custom_words, 0.25);
+        assert!(result.contains("أحمد"), "got: {result}");
+        assert!(result.contains("إِكْرَا"), "got: {result}");
+        assert!(result.contains("عبد الرحمن"), "got: {result}");
+
+        // Preserves standalone code-switch proclitic TATWEEL (`للـ pull request`) verbatim!
+        let cs = "افتح مشروع Ecra وسوّ code review للـ pull request";
+        let cs_out = apply_custom_words(cs, &["أحمد".to_string()], 0.25);
+        assert!(
+            cs_out.contains("للـ pull request"),
+            "TATWEEL stripped: {cs_out}"
+        );
     }
 }

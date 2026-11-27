@@ -19,7 +19,8 @@
     "postProcessing": "Postproces",
     "history": "Historia",
     "debug": "Debugowanie",
-    "about": "O programie"
+    "about": "O programie",
+    "intelligence": "Intelligence"
   },
   "onboarding": {
     "customModelDescription": "Nieoficjalnie wspierane",
@@ -897,6 +898,72 @@
           "description": "Wydajne wykonywanie modelu rozpoznawania mowy Whisper od OpenAI",
           "details": "Handy używa ggml do szybkiego, lokalnego przetwarzania mowy na tekst. Dzięki niesamowitej pracy Georgi Gerganova i współtwórców."
         }
+      }
+    },
+    "intelligence": {
+      "modes": {
+        "title": "Writing Modes",
+        "selectorTitle": "Intelligent Voice Modes",
+        "selectorDescription": "Dictate, compose structured prose, edit selections safely, translate EN/AR offline, run deterministic voice commands, or capture Aside notes.",
+        "targetLanguage": "Target Language",
+        "langEn": "English",
+        "langAr": "Arabic",
+        "runPreview": "Run Offline Preview",
+        "items": {
+          "dictation": "Dictation",
+          "compose": "Compose",
+          "edit": "Edit",
+          "translate": "Translate",
+          "command": "Command",
+          "aside": "Aside"
+        },
+        "spokenLabel": "Spoken transcript",
+        "selectionLabel": "Selected text (UIA)",
+        "deliversBadge": "Delivers to active app",
+        "noDeliveryBadge": "Local only — never pasted",
+        "previewRequiredBadge": "Preview confirmation required"
+      },
+      "profiles": {
+        "title": "App Profiles",
+        "safetyTitle": "Context-Aware Delivery & Terminal Safety",
+        "safetyDescription": "Automatically adapts tone and formatting per active application. Terminal windows never auto-submit Enter.",
+        "autoSubmitAllowed": "Auto-submit opt-in",
+        "autoSubmitBlocked": "Auto-submit blocked",
+        "ide": "IDE / Code Editor",
+        "terminal": "Terminal / Shell",
+        "email": "Email",
+        "chat": "Chat",
+        "notes": "Notes",
+        "document": "Document",
+        "browser": "Browser",
+        "business_app": "Business App"
+      },
+      "agents": {
+        "title": "Coding-Agent Control",
+        "dispatchTitle": "ACP stdio & Policy-Gated Agent Dispatch",
+        "dispatchDescription": "Grounds spoken prompts against workspace symbols, redacts secrets, and gates destructive actions before agent execution.",
+        "inspectEnvelope": "Inspect Policy & Prompt Envelope",
+        "promptLabel": "Spoken agent instruction",
+        "confirmHighRisk": "Confirm high-risk / destructive action"
+      },
+      "memory": {
+        "title": "Personal Memory & Aside",
+        "privacyTitle": "Local Retention & Snippets",
+        "privacyDescription": "Audio retention is off by default. Switch to Keep Nothing for zero disk persistence, or manage reusable voice snippets.",
+        "keepNothing": "Keep Nothing (Zero Persistence)",
+        "sessionOnly": "Session Only",
+        "bounded7Days": "Bounded (7 Days)",
+        "bounded30Days": "Bounded (30 Days)",
+        "userControlled": "User Controlled",
+        "triggerPlaceholder": "Spoken trigger",
+        "expansionPlaceholder": "Expanded text",
+        "addSnippet": "Save Snippet",
+        "wipeAll": "Wipe Personal Memory",
+        "keepAudioLabel": "Retain local WAV recordings (off by default)",
+        "snippetsHeading": "Saved Voice Snippets",
+        "asideHeading": "Aside Scratchpad Notes",
+        "emptySnippets": "No voice snippets saved yet.",
+        "emptyAside": "No Aside notes captured yet."
       }
     }
   },

@@ -566,6 +566,16 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Active WisprSide intelligent writing mode (`SD-2`).
+    #[serde(default)]
+    pub active_writing_mode: crate::writing_modes::WritingMode,
+    /// Target language code for offline `Translate` writing mode (`"en"` or `"ar"`).
+    #[serde(default = "default_translation_target_language")]
+    pub translation_target_language: String,
+}
+
+fn default_translation_target_language() -> String {
+    "en".to_string()
 }
 
 fn default_model() -> String {
@@ -1067,6 +1077,8 @@ pub fn get_default_settings() -> AppSettings {
         language_detection: LanguageDetectionMode::default(),
         language_detection_window_secs: default_language_detection_window_secs(),
         overlay_style: default_overlay_style(),
+        active_writing_mode: crate::writing_modes::WritingMode::default(),
+        translation_target_language: default_translation_target_language(),
     }
 }
 
