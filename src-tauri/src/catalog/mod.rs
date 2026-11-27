@@ -29,11 +29,10 @@ use crate::managers::model_capabilities::{CapabilityProbe, Compatibility};
 /// breaking change; additive fields are ignored.
 const SCHEMA: u32 = 2;
 
-/// Base URLs tried in order when the Hugging Face download fails. The full
-/// file URL is `{mirror}/{repo_id}/{revision}/{filename}` — the same three
-/// values that form the HF resolve URL, so a mirror is a plain static host.
-/// `scripts/mirror_models.py` populates it from this catalog.
-const MIRRORS: &[&str] = &["https://blob.handy.computer"];
+/// Mirror fallback list is intentionally empty in WisprSide: zero automatic
+/// fallback to donor `blob.handy.computer` endpoints; downloads use explicit
+/// user-initiated SHA-256-verified Hugging Face / user-configured URLs only.
+const MIRRORS: &[&str] = &[];
 
 /// Handy's list order and onboarding set, keyed by catalog id. Kept from the
 /// previous generator until onboarding moves to the package's recommendations.
@@ -570,17 +569,21 @@ mod tests {
     }
 
     #[test]
-    fn every_offered_model_has_mirror_fallbacks_with_hashes() {
-        // The mirror fallback is the safety net for HF outages and blocked
-        // networks; an offered entry without one silently loses that net.
+    fn zero_donor_mirror_fallbacks_remain_in_catalog() {
+        // WisprSide removes donor-hosted `blob.handy.computer` mirrors and resolves
+        // offered models strictly via HuggingFace Hub or local file import.
         for d in CATALOG.iter() {
             let mirrors = mirror_fallbacks(&d.id);
-            assert!(!mirrors.is_empty(), "{}: no mirror fallbacks", d.id);
-            for m in &mirrors {
-                assert_eq!(m.sha256.len(), 64, "{}: mirror entry lacks a sha256", d.id);
-                assert!(m.size_bytes > 0, "{}: mirror entry lacks a size", d.id);
-                assert!(m.url.starts_with("https://"), "{}: bad url {}", d.id, m.url);
-            }
+            assert!(
+                mirrors.is_empty(),
+                "{}: unexpected donor mirror fallback remained",
+                d.id
+            );
+            assert!(
+                !d.id.is_empty() && !d.name.is_empty(),
+                "{}: empty id/name",
+                d.id
+            );
         }
     }
 

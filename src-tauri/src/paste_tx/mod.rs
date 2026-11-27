@@ -37,6 +37,8 @@
 
 use std::time::{Duration, Instant};
 
+pub mod target;
+
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "windows")]
@@ -80,6 +82,9 @@ pub(crate) struct TxState {
     /// A newer paste transaction settled this one early (see flush logic in
     /// the platform modules).
     pub cancelled: bool,
+    ///Delayed render was refused by target-binding verification; never settle
+    /// or materialize the transcript onto the clipboard.
+    pub refused: bool,
     /// The post-paste Enter (auto-submit) has been sent for this transaction.
     /// (Read on Windows; the macOS path settles via `MacPending::settled`.)
     #[allow(dead_code)]
@@ -97,6 +102,7 @@ impl TxState {
             receipts: Vec::new(),
             ownership_lost: false,
             cancelled: false,
+            refused: false,
             auto_submit_sent: false,
             logged_receipt: false,
         }
@@ -191,6 +197,7 @@ pub(crate) fn send_chord(
 /// and chord injection have completed and the guarded restore (plus
 /// auto-submit) finishes asynchronously.
 #[cfg(any(target_os = "macos", target_os = "windows"))]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn try_reliable_paste(
     text: &str,
     app_handle: &tauri::AppHandle,
@@ -199,6 +206,7 @@ pub(crate) fn try_reliable_paste(
     auto_submit: bool,
     auto_submit_key: crate::settings::AutoSubmitKey,
     clipboard_handling: crate::settings::ClipboardHandling,
+    target_binding: Option<&target::TargetBinding>,
 ) -> Result<(), String> {
     platform::run(
         text,
@@ -208,6 +216,7 @@ pub(crate) fn try_reliable_paste(
         auto_submit,
         auto_submit_key,
         clipboard_handling,
+        target_binding,
     )
 }
 

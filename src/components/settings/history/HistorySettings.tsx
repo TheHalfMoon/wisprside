@@ -252,10 +252,22 @@ export const HistorySettings: React.FC = () => {
       try {
         const result = await commands.getAudioFilePath(fileName);
         if (result.status === "ok") {
-          if (osType === "linux") {
-            const fileData = await readFile(result.data);
-            const blob = new Blob([fileData], { type: "audio/wav" });
-            return URL.createObjectURL(blob);
+          const isPortablePath = /[\\/]Data[\\/]recordings[\\/]/i.test(
+            result.data,
+          );
+          if (osType === "linux" || isPortablePath) {
+            const bytesResult = await commands.readHistoryAudio(fileName);
+            if (bytesResult.status === "ok") {
+              const blob = new Blob([new Uint8Array(bytesResult.data)], {
+                type: "audio/wav",
+              });
+              return URL.createObjectURL(blob);
+            }
+            if (osType === "linux") {
+              const fileData = await readFile(result.data);
+              const blob = new Blob([fileData], { type: "audio/wav" });
+              return URL.createObjectURL(blob);
+            }
           }
           return convertFileSrc(result.data, "asset");
         }

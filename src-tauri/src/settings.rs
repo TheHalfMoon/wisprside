@@ -167,7 +167,6 @@ pub enum PasteMethod {
     None,
     ShiftInsert,
     CtrlShiftV,
-    ExternalScript,
 }
 
 /// How the transcribe shortcut's key events drive a recording.
@@ -522,12 +521,10 @@ pub struct AppSettings {
     /// Debug-gated ("beta") receipt-sequenced paste: restore the clipboard only
     /// after the target app actually reads the transcript, instead of after a
     /// fixed delay. See `paste_tx`. macOS and Windows only.
-    #[serde(default)]
+    #[serde(default = "default_reliable_paste")]
     pub reliable_paste: bool,
     #[serde(default = "default_typing_tool")]
     pub typing_tool: TypingTool,
-    #[serde(default)]
-    pub external_script_path: Option<String>,
     #[serde(default = "default_filler_word_removal_enabled")]
     pub filler_word_removal_enabled: bool,
     #[serde(default)]
@@ -602,6 +599,10 @@ fn default_autostart_enabled() -> bool {
 }
 
 fn default_update_checks_enabled() -> bool {
+    false
+}
+
+fn default_reliable_paste() -> bool {
     true
 }
 
@@ -716,7 +717,7 @@ fn default_show_tray_icon() -> bool {
 }
 
 fn default_post_process_provider_id() -> String {
-    "openai".to_string()
+    "custom".to_string()
 }
 
 fn default_post_process_providers() -> Vec<PostProcessProvider> {
@@ -1052,9 +1053,8 @@ pub fn get_default_settings() -> AppSettings {
         show_tray_icon: default_show_tray_icon(),
         paste_delay_ms: default_paste_delay_ms(),
         paste_delay_after_ms: default_paste_delay_after_ms(),
-        reliable_paste: false,
+        reliable_paste: default_reliable_paste(),
         typing_tool: default_typing_tool(),
-        external_script_path: None,
         filler_word_removal_enabled: default_filler_word_removal_enabled(),
         custom_filler_words: None,
         chinese_script: default_chinese_script(),
@@ -2054,5 +2054,23 @@ mod tests {
         let out = format!("{:?}", map);
         assert!(!out.contains("secret"));
         assert!(out.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn salvage_settings_resets_removed_external_script_paste_method_and_ignores_legacy_script_path()
+    {
+        let mut raw = serde_json::to_value(get_default_settings()).unwrap();
+        let obj = raw.as_object_mut().unwrap();
+        obj.insert("paste_method".into(), serde_json::json!("external_script"));
+        obj.insert(
+            "external_script_path".into(),
+            serde_json::json!("/tmp/legacy_paste.sh"),
+        );
+        obj.insert("paste_delay_ms".into(), serde_json::json!(125));
+
+        assert!(serde_json::from_value::<AppSettings>(raw.clone()).is_err());
+        let salvaged = salvage_settings(&raw);
+        assert_eq!(salvaged.paste_method, PasteMethod::default());
+        assert_eq!(salvaged.paste_delay_ms, 125);
     }
 }

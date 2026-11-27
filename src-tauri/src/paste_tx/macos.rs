@@ -48,11 +48,11 @@ define_class!(
     // SAFETY: NSObject has no subclassing requirements and the ivars are
     // plain Rust values guarded by a Mutex.
     #[unsafe(super(NSObject))]
-    #[name = "HandyPasteProvider"]
+    #[name = "WisprSidePasteProvider"]
     #[ivars = ProviderIvars]
-    pub struct HandyPasteProvider;
+    pub struct WisprSidePasteProvider;
 
-    impl HandyPasteProvider {
+    impl WisprSidePasteProvider {
         // NSPasteboardOwner informal protocol: the pasteboard is asking for the
         // promised data — our receipt that a consumer read the clipboard.
         #[unsafe(method(pasteboard:provideDataForType:))]
@@ -86,7 +86,7 @@ define_class!(
     }
 );
 
-impl HandyPasteProvider {
+impl WisprSidePasteProvider {
     fn new(state: Arc<Mutex<TxState>>, text: String) -> Retained<Self> {
         let this = Self::alloc().set_ivars(ProviderIvars { state, text });
         unsafe { msg_send![super(this), init] }
@@ -98,7 +98,7 @@ struct MacPending {
     saved_text: Option<String>,
     saved_image: Option<tauri::image::Image<'static>>,
     change_count: NSInteger,
-    provider: Option<Retained<HandyPasteProvider>>,
+    provider: Option<Retained<WisprSidePasteProvider>>,
     auto_submit: bool,
     auto_submit_key: AutoSubmitKey,
     /// ClipboardHandling::CopyToClipboard — instead of restoring, settle by
@@ -253,6 +253,7 @@ fn spawn_waiter(pending: Arc<Mutex<MacPending>>, app_handle: AppHandle) {
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     text: &str,
     app_handle: &AppHandle,
@@ -261,6 +262,7 @@ pub(super) fn run(
     auto_submit: bool,
     auto_submit_key: AutoSubmitKey,
     clipboard_handling: ClipboardHandling,
+    _target_binding: Option<&super::target::TargetBinding>,
 ) -> Result<(), String> {
     // Settle any previous transaction first so the snapshot below captures the
     // user's original clipboard, not the previous transcript.
@@ -277,7 +279,7 @@ pub(super) fn run(
     };
 
     let state = Arc::new(Mutex::new(TxState::new()));
-    let provider = HandyPasteProvider::new(state.clone(), text.to_string());
+    let provider = WisprSidePasteProvider::new(state.clone(), text.to_string());
     let pasteboard = NSPasteboard::generalPasteboard();
 
     let mut types: Vec<Retained<NSString>> = Vec::with_capacity(1 + CONCEALMENT_TYPES.len());
